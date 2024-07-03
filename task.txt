@@ -1,0 +1,17 @@
+Write a python application that uses Tkinter for GUI.
+
+It enables the user to select a folder and search all doc,docx,txt,odt and pdf files for a string of text
+
+User should be able to chose the folder selected
+
+User should be able to decide whether searching operation is recursive
+
+User should be able to optionally include files that don't match based on content but do based on title
+
+User should be able find all files found in a pane at the bottom of a large size listing all files matching the criteria. There should be a toggleable checkmark next to them.
+
+Checkmark should be used to decide which files to allow the user to mass copy/move to a directory of their choosing
+
+User should be able to AND or OR strings and select the combination
+User should be able to toggle caps sensitivity
+
