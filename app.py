@@ -4,103 +4,95 @@ import shutil
 import subprocess
 import platform
 import io
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QLabel, QFileDialog, QTreeWidget, QTreeWidgetItem, QCheckBox, QMessageBox
-from PyQt5.QtCore import Qt
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import *
+from tkinter import filedialog, messagebox
 from docx import Document
 from odf.opendocument import load as load_odt
 from odf.text import P
 from PyPDF2 import PdfReader
 import re
 
-
-
-
-class FileSearcherApp(QMainWindow):
+class FileSearcherApp(ttk.Window):
     def __init__(self):
-        super().__init__()
-        self.setWindowTitle("File Searcher")
-        self.setGeometry(100, 100, 800, 600)
-
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
-        self.layout = QVBoxLayout(self.central_widget)
-
+        super().__init__(themename="cosmo")
+        self.title("File Searcher")
+        self.geometry("800x600")
+        
         self.create_widgets()
 
     def create_widgets(self):
         # Folder selection
-        folder_layout = QHBoxLayout()
-        self.folder_input = QLineEdit()
-        folder_layout.addWidget(QLabel("Folder:"))
-        folder_layout.addWidget(self.folder_input)
-        browse_button = QPushButton("Browse")
-        browse_button.clicked.connect(self.browse_folder)
-        folder_layout.addWidget(browse_button)
-        self.layout.addLayout(folder_layout)
+        folder_frame = ttk.Frame(self)
+        folder_frame.pack(fill=BOTH, padx=10, pady=5)
+        ttk.Label(folder_frame, text="Folder:").pack(side=LEFT)
+        self.folder_input = ttk.Entry(folder_frame)
+        self.folder_input.pack(side=LEFT, expand=YES, fill=X, padx=(5, 5))
+        ttk.Button(folder_frame, text="Browse", command=self.browse_folder, style='info.TButton').pack(side=RIGHT)
 
         # Search text
-        search_layout = QHBoxLayout()
-        self.search_input = QLineEdit()
-        search_layout.addWidget(QLabel("Search Text:"))
-        search_layout.addWidget(self.search_input)
-        self.layout.addLayout(search_layout)
+        search_frame = ttk.Frame(self)
+        search_frame.pack(fill=BOTH, padx=10, pady=5)
+        ttk.Label(search_frame, text="Search Text:").pack(side=LEFT)
+        self.search_input = ttk.Entry(search_frame)
+        self.search_input.pack(side=LEFT, expand=YES, fill=X, padx=(5, 0))
 
         # Options
-        options_layout = QHBoxLayout()
-        self.recursive_check = QCheckBox("Recursive")
-        self.case_sensitive_check = QCheckBox("Case Sensitive")
-        self.exact_match_check = QCheckBox("Exact Match")
-        options_layout.addWidget(self.recursive_check)
-        options_layout.addWidget(self.case_sensitive_check)
-        options_layout.addWidget(self.exact_match_check)
-        self.layout.addLayout(options_layout)
+        options_frame = ttk.Frame(self)
+        options_frame.pack(fill=BOTH, padx=10, pady=5)
+        self.recursive_var = ttk.BooleanVar()
+        self.case_sensitive_var = ttk.BooleanVar()
+        self.exact_match_var = ttk.BooleanVar()
+        ttk.Checkbutton(options_frame, text="Recursive", variable=self.recursive_var, style='info.TCheckbutton').pack(side=LEFT, padx=(0, 10))
+        ttk.Checkbutton(options_frame, text="Case Sensitive", variable=self.case_sensitive_var, style='info.TCheckbutton').pack(side=LEFT, padx=(0, 10))
+        ttk.Checkbutton(options_frame, text="Exact Match", variable=self.exact_match_var, style='info.TCheckbutton').pack(side=LEFT)
 
         # Search button
-        search_button = QPushButton("Search")
-        search_button.clicked.connect(self.search_files)
-        self.layout.addWidget(search_button)
+        ttk.Button(self, text="Search", command=self.search_files, style='success.TButton').pack(pady=10)
 
         # Results tree
-        self.result_tree = QTreeWidget()
-        self.result_tree.setHeaderLabels(["File Path", "File Name"])
-        self.result_tree.itemDoubleClicked.connect(self.on_double_click)
-        self.result_tree.setSelectionMode(QTreeWidget.ExtendedSelection)
-        self.layout.addWidget(self.result_tree)
+        self.result_tree = ttk.Treeview(self, columns=("path", "name"), show="headings", style='info.Treeview')
+        self.result_tree.heading("path", text="File Path")
+        self.result_tree.heading("name", text="File Name")
+        self.result_tree.pack(expand=YES, fill=BOTH, padx=10, pady=5)
+        self.result_tree.bind("<Double-1>", self.on_double_click)
+
+        # Scrollbar for tree
+        tree_scroll = ttk.Scrollbar(self, orient="vertical", command=self.result_tree.yview)
+        tree_scroll.pack(side=RIGHT, fill=Y)
+        self.result_tree.configure(yscrollcommand=tree_scroll.set)
 
         # Action buttons
-        action_layout = QHBoxLayout()
-        copy_button = QPushButton("Copy Selected")
-        copy_button.clicked.connect(self.copy_selected)
-        move_button = QPushButton("Move Selected")
-        move_button.clicked.connect(self.move_selected)
-        action_layout.addWidget(copy_button)
-        action_layout.addWidget(move_button)
-        self.layout.addLayout(action_layout)
+        action_frame = ttk.Frame(self)
+        action_frame.pack(fill=BOTH, padx=10, pady=10)
+        ttk.Button(action_frame, text="Copy Selected", command=self.copy_selected, style='info.TButton').pack(side=LEFT, padx=(0, 5))
+        ttk.Button(action_frame, text="Move Selected", command=self.move_selected, style='warning.TButton').pack(side=LEFT)
 
     def browse_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select Folder")
+        folder = filedialog.askdirectory()
         if folder:
-            self.folder_input.setText(folder)
+            self.folder_input.delete(0, END)
+            self.folder_input.insert(0, folder)
 
     def search_files(self):
-        folder = self.folder_input.text()
-        search_text = self.search_input.text()
-        recursive = self.recursive_check.isChecked()
-        case_sensitive = self.case_sensitive_check.isChecked()
-        exact_match = self.exact_match_check.isChecked()
+        folder = self.folder_input.get()
+        search_text = self.search_input.get()
+        recursive = self.recursive_var.get()
+        case_sensitive = self.case_sensitive_var.get()
+        exact_match = self.exact_match_var.get()
 
         if not folder or not search_text:
-            QMessageBox.warning(self, "Input Error", "Please provide both folder and search text.")
+            messagebox.showwarning("Input Error", "Please provide both folder and search text.")
             return
 
-        self.result_tree.clear()
+        self.result_tree.delete(*self.result_tree.get_children())
 
         for root, dirs, files in os.walk(folder):
             for file in files:
                 if fnmatch.fnmatch(file, "*.doc") or fnmatch.fnmatch(file, "*.docx") or fnmatch.fnmatch(file, "*.txt") or fnmatch.fnmatch(file, "*.odt") or fnmatch.fnmatch(file, "*.pdf"):
                     file_path = os.path.join(root, file)
                     if self.file_matches(file_path, search_text, case_sensitive, exact_match):
-                        QTreeWidgetItem(self.result_tree, [file_path, file])
+                        self.result_tree.insert("", "end", values=(file_path, file))
 
             if not recursive:
                 break
@@ -148,17 +140,6 @@ class FileSearcherApp(QMainWindow):
         
         return False
 
-    # def search_in_text(self, text, search_text, case_sensitive, exact_match):
-    #     if not case_sensitive:
-    #         text = text.lower()
-    #         search_text = search_text.lower()
-        
-    #     if exact_match:
-    #         return f" {search_text} " in f" {text} "
-    #     else:
-    #         return search_text in text
-
-    
     def search_in_text(self, text, search_text, case_sensitive, exact_match):
         if not case_sensitive:
             text = text.lower()
@@ -172,8 +153,9 @@ class FileSearcherApp(QMainWindow):
             pattern = r'\b' + re.escape(search_text) + r'\b'
             return bool(re.search(pattern, text))
 
-    def on_double_click(self, item, column):
-        file_path = item.text(0)
+    def on_double_click(self, event):
+        item = self.result_tree.selection()[0]
+        file_path = self.result_tree.item(item, "values")[0]
         self.open_file(file_path)
 
     def open_file(self, file_path):
@@ -185,7 +167,7 @@ class FileSearcherApp(QMainWindow):
             else:                                   # linux variants
                 subprocess.call(('xdg-open', file_path))
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error opening file {file_path}: {e}")
+            messagebox.showerror("Error", f"Error opening file {file_path}: {e}")
 
     def copy_selected(self):
         self.move_or_copy_selected("copy")
@@ -194,31 +176,28 @@ class FileSearcherApp(QMainWindow):
         self.move_or_copy_selected("move")
 
     def move_or_copy_selected(self, action):
-        selected_items = self.result_tree.selectedItems()
+        selected_items = self.result_tree.selection()
         if not selected_items:
-            QMessageBox.warning(self, "Selection Error", "Please select files to " + action + ".")
+            messagebox.showwarning("Selection Error", f"Please select files to {action}.")
             return
 
-        target_folder = QFileDialog.getExistingDirectory(self, f"Select Target Folder for {action.capitalize()}")
+        target_folder = filedialog.askdirectory(title=f"Select Target Folder for {action.capitalize()}")
         if not target_folder:
             return
 
         for item in selected_items:
-            file_path = item.text(0)
+            file_path = self.result_tree.item(item, "values")[0]
             try:
                 if action == "copy":
                     shutil.copy(file_path, target_folder)
                 else:
                     shutil.move(file_path, target_folder)
-                    # Remove the item from the tree if it was moved
-                    self.result_tree.takeTopLevelItem(self.result_tree.indexOfTopLevelItem(item))
+                    self.result_tree.delete(item)
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error {action}ing file {file_path}: {e}")
+                messagebox.showerror("Error", f"Error {action}ing file {file_path}: {e}")
 
-        QMessageBox.information(self, "Success", f"Selected files {action}ied successfully.")
+        messagebox.showinfo("Success", f"Selected files {action}ied successfully.")
 
 if __name__ == "__main__":
-    app = QApplication([])
-    window = FileSearcherApp()
-    window.show()
-    app.exec_()
+    app = FileSearcherApp()
+    app.mainloop()

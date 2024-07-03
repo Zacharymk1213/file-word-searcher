@@ -3,7 +3,8 @@
 nuitka3 \
     --follow-imports \
     --standalone \
-    --enable-plugin=pyqt5 \
+    --enable-plugin=tk-inter \
+    --include-package=ttkbootstrap \
     --include-package=docx \
     --include-package=odf \
     --include-package=PyPDF2 \
