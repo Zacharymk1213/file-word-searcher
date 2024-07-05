@@ -11,6 +11,7 @@ from odf.opendocument import load as load_odt
 from odf.text import P
 from PyPDF2 import PdfReader
 import re
+import win32com.client
 
 class FileSearcherApp(tk.Tk):
     def __init__(self):
@@ -100,6 +101,13 @@ class FileSearcherApp(tk.Tk):
             if fnmatch.fnmatch(file_path, "*.docx"):
                 doc = Document(file_path)
                 return self.search_in_text("\n".join([para.text for para in doc.paragraphs]), search_text, case_sensitive, exact_match)
+            elif fnmatch.fnmatch(file_path, "*.doc"):
+                word = win32com.client.Dispatch("Word.Application")
+                doc = word.Documents.Open(file_path)
+                text = "\n".join([para.Range.Text for para in doc.Paragraphs])
+                doc.Close()
+                word.Quit()
+                return self.search_in_text(text, search_text, case_sensitive, exact_match)
             elif fnmatch.fnmatch(file_path, "*.odt"):
                 doc = load_odt(file_path)
                 return self.search_in_text("\n".join([str(para) for para in doc.getElementsByType(P)]), search_text, case_sensitive, exact_match)
@@ -121,28 +129,23 @@ class FileSearcherApp(tk.Tk):
         with io.open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
             if not case_sensitive:
                 search_text = search_text.lower()
-            
             leftovers = ''
             while True:
                 chunk = file.read(chunk_size)
                 if not chunk:
                     # End of file
                     return self.search_in_text(leftovers, search_text, case_sensitive, exact_match)
-                
                 text_to_search = leftovers + chunk
                 if self.search_in_text(text_to_search, search_text, case_sensitive, exact_match):
                     return True
-                
                 # Keep the last len(search_text) - 1 characters for the next iteration
                 leftovers = text_to_search[-(len(search_text)-1):]
-        
         return False
 
     def search_in_text(self, text, search_text, case_sensitive, exact_match):
         if not case_sensitive:
             text = text.lower()
             search_text = search_text.lower()
-    
         if exact_match:
             # Match even if it's part of a word
             return search_text in text
