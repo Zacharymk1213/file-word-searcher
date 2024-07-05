@@ -102,12 +102,20 @@ class FileSearcherApp(tk.Tk):
                 doc = Document(file_path)
                 return self.search_in_text("\n".join([para.text for para in doc.paragraphs]), search_text, case_sensitive, exact_match)
             elif fnmatch.fnmatch(file_path, "*.doc"):
-                word = win32com.client.Dispatch("Word.Application")
-                doc = word.Documents.Open(file_path)
-                text = "\n".join([para.Range.Text for para in doc.Paragraphs])
-                doc.Close()
-                word.Quit()
-                return self.search_in_text(text, search_text, case_sensitive, exact_match)
+                if platform.system() == 'Windows':
+                    word = win32com.client.Dispatch("Word.Application")
+                    word.visible = False
+                    doc = word.Documents.Open(file_path)
+                    text = doc.Range().Text
+                    doc.Close(False)
+                    word.Quit()
+                    return self.search_in_text(text, search_text, case_sensitive, exact_match)
+                else:
+                    # Alternative approach for non-Windows platforms
+                    # You can use a library like `antiword` or `textract` to extract text from .doc files
+                    # or handle the case where .doc files are not supported
+                    print(f"Warning: .doc files are not supported on this platform ({platform.system()})")
+                    return False
             elif fnmatch.fnmatch(file_path, "*.odt"):
                 doc = load_odt(file_path)
                 return self.search_in_text("\n".join([str(para) for para in doc.getElementsByType(P)]), search_text, case_sensitive, exact_match)
@@ -123,6 +131,7 @@ class FileSearcherApp(tk.Tk):
         except Exception as e:
             print(f"Error reading file {file_path}: {e}")
             return False
+
 
     def search_in_file(self, file_path, search_text, case_sensitive, exact_match):
         chunk_size = 4096  # Read in 4KB chunks
